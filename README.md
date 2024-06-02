@@ -1,8 +1,5 @@
 # backend-app
 
-## Adicionado FireBase
-
-### Adicionadas Migraciones
-
----
 * Adicionado root/Bienvenido 
+* Adicionado FireBase
+* Adicionadas Migraciones
