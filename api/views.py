@@ -10,10 +10,11 @@ from rest_framework.authtoken.models import Token
 import json
 from .helpers import obtenerUsuario, respuesta, error, crearSerializador
 from .const import *
+from .FCMManger import sendPush
 
 @method_decorator(csrf_exempt, name='dispatch')
 class GestionarUsuario(View):
-    
+
     def post(self, request):
         try:
             dataRequest = JSONParser().parse(request)
@@ -22,7 +23,7 @@ class GestionarUsuario(View):
             return respuesta(nuevoUsuario)
         except BaseException as err:
             return error(str(err))
-        
+
     def get(self, request):
         try:
             usuario = obtenerUsuario(request)
@@ -36,13 +37,13 @@ class GestionarUsuario(View):
             # serializador = crearSerializador(Usuario, 0)
             # if request.body:
             #     datosRequest = json.loads(request.body.decode('utf-8'))
-            #     usuarios = serializador(Usuario.objects.filter(id = datosRequest.get('id')), many = True).data 
-            # else: 
+            #     usuarios = serializador(Usuario.objects.filter(id = datosRequest.get('id')), many = True).data
+            # else:
             #     usuarios = serializador(Usuario.objects.all(), many = True).data
             #return respuesta(usuarios)
         except BaseException as err:
             return error(str(err))
-        
+
     def put(self, request):
         try:
             usuario = obtenerUsuario(request)
@@ -55,7 +56,7 @@ class GestionarUsuario(View):
             return respuesta(usuarioActualizado)
         except BaseException as err:
             return error(str(err))
-        
+
     def delete(self, request):
         try:
             usuario = obtenerUsuario(request)
@@ -67,36 +68,46 @@ class GestionarUsuario(View):
         except BaseException as err:
             return error(str(err))
 
-@csrf_exempt       
+@csrf_exempt
 def recibirDatos(request):
     try:
-        with transaction.atomic(): 
+        with transaction.atomic():
             usuario = obtenerUsuario(request)
             if usuario == None:
                 return error(MENSAJE_USUARIO_NO_AUTENTICADO, status.HTTP_403_FORBIDDEN)
             dataRequest = JSONParser().parse(request)
-            nuevaC =  Configuracion.__nueva__(dataRequest['datos']['configuracion'])
+            for configuracion in dataRequest['listaConfiguraciones']:
+                Configuracion.__nueva__(configuracion)
             jugadas = []
-            for item in dataRequest['datos']['jugadas']:
+            jugadaAux = dataRequest['listaJugadas'][0]
+            serializer = crearSerializador(Jugada, 0)
+            fecha = str(jugadaAux["fecha"])[0:8]
+            existe = Jugada.objects.filter(Q(usuario = jugadaAux["usuario"]) and Q(tiroManana = jugadaAux["tiroManana"]) and Q(fecha__startswith = fecha))
+            if existe[0]:
+                return error("Ya este usuario subio los datos de esa sesión")
+            for item in dataRequest['listaJugadas']:
                 nueva =  Jugada.__nueva__(item)
                 jugadas.append(nueva)
             if not usuario.configuracionActualizada:
                 serializer = crearSerializador(Configuracion, 0)
-                confGlobal = serializer(Configuracion.objects.get(usuario="global"), many = False).data
-                usuario.configuracionActualizada = True
-                usuario.save()
-                return respuesta(confGlobal)
-            return respuesta("OK")
+                try:
+                    confGlobal = serializer(Configuracion.objects.get(usuario="global"), many = False).data
+                    usuario.configuracionActualizada = True
+                    usuario.save()
+                    return respuesta(confGlobal)
+                except:
+                    pass
+            return respuesta("Datos recibidos exitosamente")
     except BaseException as err:
         return error(str(err))
 
-@csrf_exempt       
+@csrf_exempt
 def enviarDatos(request):
     try:
-        # usuario = obtenerUsuario(request)
-        # if usuario == None:
-        #     return error(MENSAJE_USUARIO_NO_AUTENTICADO, status.HTTP_403_FORBIDDEN)
-        with transaction.atomic(): 
+        with transaction.atomic():
+            usuario = obtenerUsuario(request)
+            if usuario == None:
+                return error(MENSAJE_USUARIO_NO_AUTENTICADO, status.HTTP_403_FORBIDDEN)
             serializadorC = crearSerializador(Configuracion, 0)
             serializadorJ = crearSerializador(Jugada, 0)
             dataC = serializadorC( Configuracion.objects.filter(enviado=False), many = True).data
@@ -107,10 +118,10 @@ def enviarDatos(request):
     except BaseException as err:
         return error(str(err))
 
-@csrf_exempt       
+@csrf_exempt
 def recibirConfiguracionGlobal(request):
     try:
-        with transaction.atomic(): 
+        with transaction.atomic():
             usuario = obtenerUsuario(request)
             if usuario == None:
                 return error(MENSAJE_USUARIO_NO_AUTENTICADO, status.HTTP_403_FORBIDDEN)
@@ -135,3 +146,19 @@ class CustomAuthToken(ObtainAuthToken):
         return respuesta({
             'token': token.key,
         })
+
+def bienvenido(request):
+    return respuesta("Bienvenido!!!")
+
+@csrf_exempt
+def notificar(request):
+    try:
+        usuario = obtenerUsuario(request)
+        if usuario == None:
+            return error(MENSAJE_USUARIO_NO_AUTENTICADO, status.HTTP_403_FORBIDDEN)
+        token = ['fFhD7jIzHOQ:APA91bErqVqloGMJdMtziizzxlBBSOW_hSiJ9z9MIFC2AwHQhiOe8szB6xiTWY6z1nMpjRiZYrXor1NIBsxqk9n2xKuE0h_XQ7_oF3lL16s9v_DnBEePQ3gSmZVH2lqG6PjXt2xrReGx']
+        sendPush("hello", "mensaje", token)
+        return respuesta("Mensaje enviado")
+
+    except BaseException as err:
+        return error(str(err))
