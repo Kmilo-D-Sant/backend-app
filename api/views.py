@@ -122,9 +122,25 @@ def enviarDatos(request):
                 enviado=False), many=True).data
             dataJ = serializadorJ(Jugada.objects.filter(
                 enviado=False), many=True).data
-            Configuracion.objects.filter(enviado=False).update(enviado=True)
-            Jugada.objects.filter(enviado=False).update(enviado=True)
+            # Configuracion.objects.filter(enviado=False).update(enviado=True)
+            # Jugada.objects.filter(enviado=False).update(enviado=True)
             return respuesta({"configuraciones": dataC, "jugadas": dataJ})
+    except BaseException as err:
+        return error(str(err))
+    
+@csrf_exempt
+def marcarEnviados(request):
+    try:
+        with transaction.atomic():
+            usuario = obtenerUsuario(request)
+            if usuario == None:
+                return error(MENSAJE_USUARIO_NO_AUTENTICADO, status.HTTP_403_FORBIDDEN)
+            dataRequest = JSONParser().parse(request)
+            for idAux in dataRequest['listaConfiguraciones']:
+                Configuracion.objects.filter(id=idAux).update(enviado=True)
+            for idAux in dataRequest['listaJugadas']:
+                Jugada.objects.filter(id=idAux).update(enviado=True)
+            return respuesta("Solicitud procesada")
     except BaseException as err:
         return error(str(err))
 

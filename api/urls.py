@@ -9,6 +9,8 @@ urlpatterns = [
     path('enviar-datos/', recibirDatos, name="enviar-datos"),
     path('recibir-datos', enviarDatos, name="recibir-datos"),
     path('recibir-datos/', enviarDatos, name="recibir-datos"),
+    path('marcar-enviados', marcarEnviados, name="marcar-enviados"),
+    path('marcar-enviados/', marcarEnviados, name="marcar-enviados"),
     path('recibir-configuracion-global', recibirConfiguracionGlobal, name="'recibir-configuracion-global"),
     path('recibir-configuracion-global/', recibirConfiguracionGlobal, name="'recibir-configuracion-global"),
     path('recibir-token', CustomAuthToken.as_view()),
