@@ -76,6 +76,7 @@ class Jugada(models.Model):
     tiroManana = models.BooleanField(default=True)
     premio = models.FloatField(default=0)
     enviado = models.BooleanField(default=False)
+    enviadoCl = models.BooleanField(default=False)
 
     def __nueva__(data):
         serializador = crearSerializador(Jugada, 0)
@@ -85,20 +86,6 @@ class Jugada(models.Model):
             return objectAux
         else:
             return None
-
-    # def __nueva__( tipo,  numeros,  monto,  enElBote,  corrido,  usuario, fecha, tiroManana):
-    #     self =  Jugada()
-    #     self.tipo = tipo
-    #     self.usuario = usuario
-    #     self.numeros = numeros
-    #     self.montoFijo = monto
-    #     if tipo == TipoJugada.BOLA:
-    #         self.montoCorrido = corrido
-    #     self.enElBote = enElBote
-    #     self.fecha = fecha
-    #     self.tiroManana = tiroManana
-    #     self.save()
-    #     return self
 
 
 class Configuracion(models.Model):
@@ -186,6 +173,7 @@ class Configuracion(models.Model):
     noSeJuegaCentenaBoteUsuario = models.CharField(
         max_length=100, blank=True, null=True)
     enviado = models.BooleanField(default=False)
+    enviadoCl = models.BooleanField(default=False)
 
     def __nueva__(data):
         serializador = crearSerializador(Configuracion, 0)

@@ -7,10 +7,10 @@ from django.utils.decorators import method_decorator
 from django.views import View
 from rest_framework.authtoken.views import ObtainAuthToken
 from rest_framework.authtoken.models import Token
-import json
 from .helpers import obtenerUsuario, respuesta, error, crearSerializador
 from .const import *
 from .FCMManger import sendPush
+from datetime import datetime, timedelta
 
 
 @method_decorator(csrf_exempt, name='dispatch')
@@ -89,7 +89,7 @@ def recibirDatos(request):
             fecha = str(jugadaAux["fecha"])[0:8]
             existe = Jugada.objects.filter(Q(usuario=jugadaAux["usuario"]) and Q(
                 tiroManana=jugadaAux["tiroManana"]) and Q(fecha__startswith=fecha))
-            if len(existe)>0:
+            if len(existe) > 0:
                 return error("Ya este usuario subio los datos de esa sesión")
             for item in dataRequest['listaJugadas']:
                 nueva = Jugada.__nueva__(item)
@@ -127,7 +127,32 @@ def enviarDatos(request):
             return respuesta({"configuraciones": dataC, "jugadas": dataJ})
     except BaseException as err:
         return error(str(err))
-    
+
+
+@csrf_exempt
+def enviarDatosCl(request):
+    try:
+        with transaction.atomic():
+            usuario = obtenerUsuario(request)
+            if usuario == None:
+                return error(MENSAJE_USUARIO_NO_AUTENTICADO, status.HTTP_403_FORBIDDEN)
+            dataRequest = JSONParser().parse(request)
+            cl = str.upper(str(dataRequest["CL"]))
+            if not cl or len(cl) < 2 or (len(cl) > 0 and cl[0] != 'C'):
+                return error("Error en datos")
+            serializadorC = crearSerializador(Configuracion, 0)
+            serializadorJ = crearSerializador(Jugada, 0)
+            qC = Configuracion.objects.filter(
+                usuario__startswith=cl[1]).filter(enviadoCl=False)
+            dataC = serializadorC(qC, many=True).data
+            qJ = Jugada.objects.filter(
+                usuario__startswith=cl[1]).filter(enviadoCl=False)
+            dataJ = serializadorJ(qJ, many=True).data
+            return respuesta({"configuraciones": dataC, "jugadas": dataJ})
+    except BaseException as err:
+        return error(str(err))
+
+
 @csrf_exempt
 def marcarEnviados(request):
     try:
@@ -140,6 +165,25 @@ def marcarEnviados(request):
                 Configuracion.objects.filter(id=idAux).update(enviado=True)
             for idAux in dataRequest['listaJugadas']:
                 Jugada.objects.filter(id=idAux).update(enviado=True)
+            return respuesta("Solicitud procesada")
+    except BaseException as err:
+        return error(str(err))
+    finally:
+        reciclarDatosObsoletos()
+
+
+@csrf_exempt
+def marcarEnviadosCl(request):
+    try:
+        with transaction.atomic():
+            usuario = obtenerUsuario(request)
+            if usuario == None:
+                return error(MENSAJE_USUARIO_NO_AUTENTICADO, status.HTTP_403_FORBIDDEN)
+            dataRequest = JSONParser().parse(request)
+            for idAux in dataRequest['listaConfiguraciones']:
+                Configuracion.objects.filter(id=idAux).update(enviadoCl=True)
+            for idAux in dataRequest['listaJugadas']:
+                Jugada.objects.filter(id=idAux).update(enviadoCl=True)
             return respuesta("Solicitud procesada")
     except BaseException as err:
         return error(str(err))
@@ -178,6 +222,18 @@ class CustomAuthToken(ObtainAuthToken):
 
 def bienvenido(request):
     return respuesta("Bienvenido!!!")
+
+
+def reciclarDatosObsoletos():
+    try:
+        with transaction.atomic():
+            obsDate = int(datetime.strftime(datetime.today() +
+                                            timedelta(days=-15), '%Y%m%d'))*10000+2359
+            qC = Configuracion.objects.filter(fecha__lte=obsDate).filter(enviado=True).delete()
+            qJ = Jugada.objects.filter(fecha__lte=obsDate).filter(enviado=True).delete()
+            print(f"Eliminando datos obsoletos (fecha: {obsDate}, {qC[0]}, {qJ[0]})")
+    except BaseException as err:
+        print(f"Eliminando datos obsoletos ({err})")
 
 
 @csrf_exempt
